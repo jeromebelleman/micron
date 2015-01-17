@@ -7,7 +7,8 @@ Schedule jobs
 import sys
 import os.path
 import argparse
-import datetime, time
+import time
+from datetime import datetime
 import threading
 import shlex, subprocess
 import parsedatetime.parsedatetime
@@ -15,8 +16,8 @@ import yaml
 
 FMT = '%d %b %Y %H:%M:%S'
 
-# TODO Notification windows
 # TODO Logging
+# TODO Notification windows
 # TODO D-Bus events
 
 def dump(runs, directory):
@@ -47,6 +48,9 @@ def main():
     # Create datetime parser
     parser = parsedatetime.parsedatetime.Calendar()
 
+    # Create thread list
+    threads = {}
+
     # Loop
     try:
         while True:
@@ -67,7 +71,7 @@ def main():
 
             # Run jobs when applicable
             for job in jobs:
-                now = datetime.datetime.now()
+                now = datetime.now()
 
                 # When would the next run be?
                 try:
@@ -83,19 +87,27 @@ def main():
                     nextrun = 0
                     runs = {job: {'start': now.strftime(FMT)}}
 
-                if now > datetime.datetime.fromtimestamp(nextrun):
-                    # Reset
+                # Is the job running?
+                try:
+                    running = threads[job].is_alive()
+                except KeyError:
+                    running = False
+
+                # Run the job?
+                if not running and now > datetime.fromtimestamp(nextrun):
+                    # Reset job run
                     dump(runs, args.directory)
 
                     # Run job
-                    threading.Thread(target=run, args=(job, jobs[job])).start()
+                    threads[job] = threading.Thread(target=run,
+                                                    args=(job, jobs[job]))
+                    threads[job].start()
 
                     # Report
                     try:
-                        runs[job]['end'] = datetime.datetime.now().strftime(FMT)
+                        runs[job]['end'] = datetime.now().strftime(FMT)
                     except KeyError:
-                        runs[job] = \
-                            {'end': datetime.datetime.now().strftime(FMT)}
+                        runs[job] = {'end': datetime.now().strftime(FMT)}
                     dump(runs, args.directory)
 
             time.sleep(2)
