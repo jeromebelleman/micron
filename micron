@@ -17,38 +17,65 @@ import yaml
 
 TIMEFMT = '%d %b %Y %H:%M:%S'
 LOGFMT = '%(asctime)s %(levelname)s %(message)s'
-EXITFMT = "Job '%s' exited with %d"
+EXITFMT = "Job '%s' exited with %d. %s"
 
+# TODO Log to files
+# TODO Daemonise
+# TODO Random
 # TODO Notification windows
+# TODO Timeout
 # TODO D-Bus events
 
 def dump(runs, directory):
     with open(directory + '/runs.yaml', 'w') as fhl:
         yaml.safe_dump(runs, fhl, default_flow_style=False)
 
-def run(name, job):
-    # Run process
+def run(parser, name, job):
     try:
-        cwd = os.path.expanduser(job['cwd'])
-    except KeyError:
-        cwd = None
-    proc = subprocess.Popen(job['command'], stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, shell=True, cwd=cwd)
-    out, err = proc.communicate()
+        maxretry = int(job['maxretry'])
+    except (KeyError, ValueError):
+        maxretry = 1
 
-    # Print output
-    out = out.strip()
-    err = err.strip()
-    if out:
-        logging.info('%s:\n%s', name, out)
-    if err:
-        logging.warning('%s:\n%s', name, err)
+    try:
+        retry = job['retry']
+        assert retry != ''
+    except (KeyError, AssertionError):
+        retry = '1 hour'
 
-    # Report status
-    if proc.returncode == 0:
-        logging.info(EXITFMT, name, proc.returncode)
-    else:
-        logging.warning(EXITFMT, name, proc.returncode)
+    for i in range(maxretry):
+        logging.info("Running job '%s'", name)
+
+        # Run process
+        try:
+            cwd = os.path.expanduser(job['cwd'])
+        except KeyError:
+            cwd = None
+        proc = subprocess.Popen(job['command'], stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, shell=True, cwd=cwd)
+        out, err = proc.communicate()
+
+        # Print output
+        out = out.strip()
+        err = err.strip()
+        if out:
+            logging.info('%s:\n%s', name, out)
+        if err:
+            logging.warning('%s:\n%s', name, err)
+
+        # Report status
+        if proc.returncode == 0:
+            logging.info(EXITFMT, name, proc.returncode)
+        else:
+            if i < maxretry - 1:
+                retrymsg = "Will retry in %s" % retry
+            else:
+                retrymsg = "Giving up after %d retries" % maxretry
+            logging.warning(EXITFMT, name, proc.returncode, retrymsg)
+
+            if i < maxretry - 1:
+                retry = time.mktime(parser.parse(retry)[0])
+                retry = datetime.fromtimestamp(retry) - datetime.now()
+                time.sleep(retry.total_seconds())
 
 def main():
     # Arguments
@@ -116,13 +143,13 @@ def main():
 
                 # Run the job?
                 if now > datetime.fromtimestamp(nextrun):
-                    logging.info("Running job '%s'", job)
                     try:
                         del runs[job]['end']
                     except KeyError:
                         pass
-                    threads[job] = threading.Thread(target=run,
-                                                    args=(job, jobs[job]))
+                    threads[job] = \
+                        threading.Thread(target=run,
+                                         args=(parser, job, jobs[job]))
                     threads[job].start()
 
             dump(runs, args.directory)
