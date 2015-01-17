@@ -12,15 +12,14 @@ from datetime import datetime
 import threading
 import shlex, subprocess
 import logging
-import parsedatetime.parsedatetime
+import daemon
 import yaml
+import parsedatetime.parsedatetime
 
 TIMEFMT = '%d %b %Y %H:%M:%S'
 LOGFMT = '%(asctime)s %(levelname)s %(message)s'
 EXITFMT = "Job '%s' exited with %d. %s"
 
-# TODO Log to files
-# TODO Daemonise
 # TODO Random
 # TODO Notification windows
 # TODO Timeout
@@ -77,21 +76,13 @@ def run(parser, name, job):
                 retry = datetime.fromtimestamp(retry) - datetime.now()
                 time.sleep(retry.total_seconds())
 
-def main():
-    # Arguments
-    parser = argparse.ArgumentParser('Schedule jobs.')
-    parser.add_argument('-d', '--directory', type=os.path.expanduser,
-                        default='~/.micron')
-    args = parser.parse_args()
-
-    # Create directory
-    try:
-        os.mkdir(args.directory)
-    except OSError:
-        pass
-
+def loop(args):
     # Logging
-    logging.basicConfig(level=logging.INFO, format=LOGFMT)
+    if args.foreground:
+        logging.basicConfig(level=logging.INFO, format=LOGFMT)
+    else:
+        logging.basicConfig(level=logging.INFO, format=LOGFMT,
+                            filename=args.directory + '/log')
 
     # Create datetime parser
     parser = parsedatetime.parsedatetime.Calendar()
@@ -99,7 +90,6 @@ def main():
     # Create thread list
     threads = {}
 
-    # Loop
     try:
         logging.info('Starting main loop')
         while True:
@@ -156,6 +146,28 @@ def main():
             time.sleep(2)
     except KeyboardInterrupt:
         logging.info('Exited main loop')
+
+def main():
+    # Arguments
+    parser = argparse.ArgumentParser('Schedule jobs.')
+    parser.add_argument('-d', '--directory', type=os.path.expanduser,
+                        default='~/.micron', help="runtime directory")
+    parser.add_argument('-f', '--foreground', help="don't daemonise",
+                        action='store_true')
+    args = parser.parse_args()
+
+    # Create directory
+    try:
+        os.mkdir(args.directory)
+    except OSError:
+        pass
+
+    # Daemonise?
+    if not args.foreground:
+        with daemon.DaemonContext():
+            loop(args)
+    else:
+        loop(args)
 
 if __name__ == '__main__':
     sys.exit(main())
