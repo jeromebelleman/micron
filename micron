@@ -22,6 +22,7 @@ LOGFMT = '%(asctime)s %(levelname)s %(message)s'
 EXITFMT = "Job '%s' exited with %d%s"
 RANDFMT = "Randomly waiting for %d s before running job '%s'"
 
+# TODO Config file with e.g. loop rate
 # TODO Measure CPU
 # TODO Package
 # TODO Timeout
@@ -198,7 +199,7 @@ def main():
     '''
 
     # Arguments
-    parser = argparse.ArgumentParser('Schedule jobs.')
+    parser = argparse.ArgumentParser(description="Schedule jobs.")
     parser.add_argument('-d', '--directory', type=os.path.expanduser,
                         default='~/.micron', help="runtime directory")
     parser.add_argument('-f', '--foreground', help="don't daemonise",
