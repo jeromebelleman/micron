@@ -19,7 +19,7 @@ import parsedatetime.parsedatetime
 
 TIMEFMT = '%d %b %Y %H:%M:%S'
 LOGFMT = '%(asctime)s %(levelname)s %(message)s'
-EXITFMT = "Job '%s' exited with %d. %s"
+EXITFMT = "Job '%s' exited with %d%s"
 RANDFMT = "Randomly waiting for %d s before running job '%s'"
 
 # TODO Random
@@ -82,12 +82,12 @@ def run(parser, name, job):
 
         # Report status
         if proc.returncode == 0:
-            logging.info(EXITFMT, name, proc.returncode)
+            logging.info(EXITFMT, name, proc.returncode, '')
         else:
             if i < maxretry - 1:
-                retrymsg = "Will retry in %s" % retry
+                retrymsg = ". Will retry in %s" % retry
             else:
-                retrymsg = "Giving up after %d retries" % maxretry
+                retrymsg = ". Giving up after %d retries" % maxretry
             logging.warning(EXITFMT, name, proc.returncode, retrymsg)
 
             if i < maxretry - 1:
