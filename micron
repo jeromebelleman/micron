@@ -13,12 +13,14 @@ import threading
 import shlex, subprocess
 import logging
 import daemon
+import random
 import yaml
 import parsedatetime.parsedatetime
 
 TIMEFMT = '%d %b %Y %H:%M:%S'
 LOGFMT = '%(asctime)s %(levelname)s %(message)s'
 EXITFMT = "Job '%s' exited with %d. %s"
+RANDFMT = "Randomly waiting for %d s before running job '%s'"
 
 # TODO Random
 # TODO Notification windows
@@ -30,6 +32,7 @@ def dump(runs, directory):
         yaml.safe_dump(runs, fhl, default_flow_style=False)
 
 def run(parser, name, job):
+    # Sanitise fields
     try:
         maxretry = int(job['maxretry'])
     except (KeyError, ValueError):
@@ -41,13 +44,29 @@ def run(parser, name, job):
     except (KeyError, AssertionError):
         retry = '1 hour'
 
+    try:
+        rand = job['random']
+        assert retry != ''
+    except (KeyError, AssertionError):
+        rand = None
+
+    # Wait for some random amount of time
+    if rand:
+        rand = time.mktime(parser.parse(rand)[0])
+        rand = datetime.fromtimestamp(rand) - datetime.now()
+        rand = random.randrange(int(rand.total_seconds()))
+        logging.info(RANDFMT, rand, name)
+        time.sleep(rand)
+
+    # Attempt to run job
     for i in range(maxretry):
         logging.info("Running job '%s'", name)
 
         # Run process
         try:
             cwd = os.path.expanduser(job['cwd'])
-        except KeyError:
+            assert cwd != ''
+        except (KeyError, AssertionError):
             cwd = None
         proc = subprocess.Popen(job['command'], stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, shell=True, cwd=cwd)
@@ -57,9 +76,9 @@ def run(parser, name, job):
         out = out.strip()
         err = err.strip()
         if out:
-            logging.info('%s:\n%s', name, out)
+            logging.info("Job '%s':\n%s", name, out)
         if err:
-            logging.warning('%s:\n%s', name, err)
+            logging.warning("Job '%s':\n%s", name, err)
 
         # Report status
         if proc.returncode == 0:
@@ -110,9 +129,8 @@ def loop(args):
                 runs = {}
 
             # Run jobs when applicable
+            now = datetime.now()
             for job in jobs:
-                now = datetime.now()
-
                 # Is the job running?
                 try:
                     if threads[job].isAlive():
@@ -124,6 +142,7 @@ def loop(args):
 
                 # When would the next run be?
                 try:
+                    # FIXME I don't think we need 'from'
                     nextrun = parser.parse('%s from %s' % (jobs[job]['every'],
                                            runs[job]['end']))[0]
                     nextrun = time.mktime(nextrun)
