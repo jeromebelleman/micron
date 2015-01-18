@@ -22,7 +22,7 @@ LOGFMT = '%(asctime)s %(levelname)s %(message)s'
 EXITFMT = "Job '%s' exited with %d%s"
 RANDFMT = "Randomly waiting for %d s before running job '%s'"
 
-# TODO Random
+# TODO Pylint
 # TODO Notification windows
 # TODO Timeout
 # TODO D-Bus events
@@ -83,6 +83,7 @@ def run(parser, name, job):
         # Report status
         if proc.returncode == 0:
             logging.info(EXITFMT, name, proc.returncode, '')
+            break
         else:
             if i < maxretry - 1:
                 retrymsg = ". Will retry in %s" % retry
