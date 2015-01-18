@@ -154,7 +154,8 @@ def loop(args):
 
                 # When would the next run be?
                 try:
-                    nextrun = parser.parse(jobs[job]['every'])[0]
+                    nextrun = parser.parse('%s from %s' % (jobs[job]['every'],
+                                           runs[job]['end']))[0]
                     nextrun = time.mktime(nextrun)
                 except KeyError, exc:
                     nextrun = 0
