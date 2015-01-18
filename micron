@@ -22,9 +22,18 @@ LOGFMT = '%(asctime)s %(levelname)s %(message)s'
 EXITFMT = "Job '%s' exited with %d%s"
 RANDFMT = "Randomly waiting for %d s before running job '%s'"
 
-# TODO Notification windows
+# TODO Measure CPU
+# TODO Package
 # TODO Timeout
 # TODO D-Bus events
+
+def notify(msg):
+    '''
+    Notify
+    '''
+
+    subprocess.call(['urxvt', '-name', 'notsink', '-title', 'micron', '-hold',
+                     '-e', 'echo', msg])
 
 def dump(runs, directory):
     '''
@@ -53,7 +62,7 @@ def run(parser, name, job):
 
     try:
         rand = job['random']
-        assert retry != ''
+        assert rand != ''
     except (KeyError, AssertionError):
         rand = None
 
@@ -93,15 +102,20 @@ def run(parser, name, job):
             break
         else:
             if i < maxretry - 1:
-                retrymsg = ". Will retry in %s" % retry
+                msg = "Job '%s' exited with %d. Will retry in %s" % \
+                    (name, proc.returncode, retry)
             else:
-                retrymsg = ". Giving up after %d retries" % maxretry
-            logging.warning(EXITFMT, name, proc.returncode, retrymsg)
+                msg = "Job '%s' exited with %d. Giving up after %d retries" % \
+                    (name, proc.returncode, maxretry)
+                thread = threading.Thread(target=notify, args=(msg,))
+                thread.daemon = True
+                thread.start()
+            logging.warning(msg)
 
             if i < maxretry - 1:
-                retry = time.mktime(parser.parse(retry)[0])
-                retry = datetime.fromtimestamp(retry) - datetime.now()
-                time.sleep(retry.total_seconds())
+                retryts = time.mktime(parser.parse(retry)[0])
+                retryts = datetime.fromtimestamp(retryts) - datetime.now()
+                time.sleep(retryts.total_seconds())
 
 def loop(args):
     '''
