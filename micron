@@ -14,7 +14,7 @@ import subprocess
 import logging
 import daemon
 import random
-import yaml
+import yaml, json
 import parsedatetime.parsedatetime
 
 TIMEFMT = '%d %b %Y %H:%M:%S'
@@ -44,7 +44,7 @@ def dump(runs, directory):
     with open(directory + '/runs.yaml', 'w') as fhl:
         yaml.safe_dump(runs, fhl, default_flow_style=False)
 
-def run(parser, name, job):
+def run(cfg, parser, name, job):
     '''
     Run job
     '''
@@ -108,9 +108,13 @@ def run(parser, name, job):
             else:
                 msg = "Job '%s' exited with %d. Giving up after %d retries" % \
                     (name, proc.returncode, maxretry)
-                thread = threading.Thread(target=notify, args=(msg,))
-                thread.daemon = True
-                thread.start()
+                try:
+                    if json.loads(cfg['notify']):
+                        thread = threading.Thread(target=notify, args=(msg,))
+                        thread.daemon = True
+                        thread.start()
+                except KeyError:
+                    pass
             logging.warning(msg)
 
             if i < maxretry - 1:
@@ -118,7 +122,7 @@ def run(parser, name, job):
                 retryts = datetime.fromtimestamp(retryts) - datetime.now()
                 time.sleep(retryts.total_seconds())
 
-def loop(args):
+def loop(args, cfg):
     '''
     Event loop
     '''
@@ -184,12 +188,15 @@ def loop(args):
                         pass
                     threads[job] = \
                         threading.Thread(target=run,
-                                         args=(parser, job, jobs[job]))
+                                         args=(cfg, parser, job, jobs[job]))
                     threads[job].daemon = True
                     threads[job].start()
 
             dump(runs, args.directory)
-            time.sleep(2)
+            try:
+                time.sleep(int(cfg['loopsleep']))
+            except (KeyError, ValueError):
+                time.sleep(3600)
     except KeyboardInterrupt:
         logging.info('Exited main loop')
 
@@ -212,12 +219,20 @@ def main():
     except OSError:
         pass
 
+    # Load config file
+    try:
+        with open(args.directory + '/config.yaml') as fhl:
+            cfg = yaml.load(fhl, Loader=yaml.BaseLoader)
+        assert cfg is not None
+    except (IOError, AssertionError):
+        cfg = {}
+
     # Daemonise?
     if not args.foreground:
         with daemon.DaemonContext():
-            loop(args)
+            loop(args, cfg)
     else:
-        loop(args)
+        loop(args, cfg)
 
 if __name__ == '__main__':
     sys.exit(main())
