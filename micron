@@ -160,6 +160,7 @@ def loop(args):
                     threads[job] = \
                         threading.Thread(target=run,
                                          args=(parser, job, jobs[job]))
+                    threads[job].daemon = True
                     threads[job].start()
 
             dump(runs, args.directory)
