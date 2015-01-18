@@ -10,7 +10,7 @@ import argparse
 import time
 from datetime import datetime
 import threading
-import shlex, subprocess
+import subprocess
 import logging
 import daemon
 import random
@@ -22,16 +22,23 @@ LOGFMT = '%(asctime)s %(levelname)s %(message)s'
 EXITFMT = "Job '%s' exited with %d%s"
 RANDFMT = "Randomly waiting for %d s before running job '%s'"
 
-# TODO Pylint
 # TODO Notification windows
 # TODO Timeout
 # TODO D-Bus events
 
 def dump(runs, directory):
+    '''
+    Dump runs information to file
+    '''
+
     with open(directory + '/runs.yaml', 'w') as fhl:
         yaml.safe_dump(runs, fhl, default_flow_style=False)
 
 def run(parser, name, job):
+    '''
+    Run job
+    '''
+
     # Sanitise fields
     try:
         maxretry = int(job['maxretry'])
@@ -97,6 +104,10 @@ def run(parser, name, job):
                 time.sleep(retry.total_seconds())
 
 def loop(args):
+    '''
+    Event loop
+    '''
+
     # Logging
     if args.foreground:
         logging.basicConfig(level=logging.INFO, format=LOGFMT)
@@ -167,6 +178,10 @@ def loop(args):
         logging.info('Exited main loop')
 
 def main():
+    '''
+    Main loop
+    '''
+
     # Arguments
     parser = argparse.ArgumentParser('Schedule jobs.')
     parser.add_argument('-d', '--directory', type=os.path.expanduser,
