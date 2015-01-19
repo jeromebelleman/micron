@@ -1,0 +1,111 @@
+.TH "MICRON" "1" "January 2015" "" ""
+.hy
+.SH NAME
+.PP
+micron \[en] Schedule jobs
+.SH SYNOPSIS
+.PP
+\f[C]micron\ [\-h]\ [\-d\ DIRECTORY]\ [\-f]\f[]
+.SH OPTIONS
+.TP
+.B \f[C]\-h,\ \-\-help\f[]
+Show help message and exit.
+.RS
+.RE
+.TP
+.B \f[C]\-d\ DIRECTORY,\ \-\-directory\ DIRECTORY\f[]
+Runtime directory.
+.RS
+.RE
+.TP
+.B \f[C]\-f,\ \-\-foreground\f[]
+Run in the foreground (i.e.
+do not daemonise).
+.RS
+.RE
+.SH JOB FILE
+.PP
+Jobs are defined in the \f[B]~/.micron/jobs.yaml\f[] file (or wherever
+it is depending on what you made of the \f[B]\-\-directory\f[] option).
+This file is reloaded every cycle.
+.IP
+.nf
+\f[C]
+foo:
+\ \ \ \ every:\ \ \ \ \ \ 1\ week
+\ \ \ \ command:\ \ \ \ /usr/bin/foo
+\ \ \ \ retry:\ \ \ \ \ \ 1\ hour
+\ \ \ \ maxretry:\ \ \ 3
+\ \ \ \ #\ random:\ \ \ \ \ 30\ minutes
+\f[]
+.fi
+.PP
+Every job starts with a unique key (e.g.\ called \f[B]sleep\f[], here).
+Duration are written in a natural language.
+The following fields are available, newlines are fine \[en]\ no need to
+escape\ \[en] and you can comment them out with \f[B]#\f[].
+.TP
+.B every
+How often the job should run.
+.RS
+.RE
+.TP
+.B command
+Command to run, as you would type it in a shell.
+.RS
+.RE
+.TP
+.B cwd
+Current working directory.
+It defaults to \f[B]/\f[] when micron is run as a daemon, micron\[aq]s
+own current working directory otherwise.
+.RS
+.RE
+.TP
+.B retry
+Time to wait before running the job again after a failure, i.e.\ a
+non\-zero exit code.
+It defaults to 1\ hour.
+.RS
+.RE
+.TP
+.B maxretry
+How many times to retry a failed job, i.e.\ one exiting with a non\-zero
+code.
+There is no retry by default.
+.RS
+.RE
+.TP
+.B random
+How long to wait for before starting the job at its scheduled time.
+There is no wait by default.
+.RS
+.RE
+.TP
+.B timeout
+How long to wait before interrupting the job after it starts.
+This isn\[aq]t implemented yet.
+There will be no timeout by default.
+.RS
+.RE
+.SH CONFIGURATION FILE
+.PP
+Configuration is defined in the \f[B]~/.micron/config.yaml\f[] file (or
+wherever it is depending on what you made of the \f[B]\-\-directory\f[]
+option).
+The following optional parameters can be set:
+.TP
+.B loopsleep
+How long in seconds to sleep for at the end of each cycle.
+Defaults to 60\ seconds.
+.RS
+.RE
+.TP
+.B notify:
+A boolean specifying whether or not to open a notification window after
+a job failure.
+Defaults to \f[B]false\f[].
+.RS
+.RE
+.SH AUTHORS
+Jérôme Belleman.
