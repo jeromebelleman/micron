@@ -228,7 +228,9 @@ def main():
 
     # Daemonise?
     if not args.foreground:
-        with daemon.DaemonContext():
+        umask = os.umask(0)
+        os.umask(umask)
+        with daemon.DaemonContext(umask=umask):
             loop(args, cfg)
     else:
         loop(args, cfg)
