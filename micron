@@ -8,7 +8,7 @@ import sys
 import os.path
 import argparse
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import threading
 import subprocess
 import logging
@@ -20,7 +20,6 @@ import parsedatetime.parsedatetime
 TIMEFMT = '%d %b %Y %H:%M:%S'
 LOGFMT = '%(asctime)s %(levelname)s %(message)s'
 EXITFMT = "Job '%s' exited with %d%s"
-RANDFMT = "Randomly waiting for %d s before running job '%s'"
 
 # TODO Measure CPU
 # TODO Package
@@ -59,20 +58,6 @@ def run(cfg, parser, name, job):
         assert retry != ''
     except (KeyError, AssertionError):
         retry = '1 hour'
-
-    try:
-        rand = job['random']
-        assert rand != ''
-    except (KeyError, AssertionError):
-        rand = None
-
-    # Wait for some random amount of time
-    if rand:
-        rand = time.mktime(parser.parse(rand)[0])
-        rand = datetime.fromtimestamp(rand) - datetime.now()
-        rand = random.randrange(int(rand.total_seconds()))
-        logging.info(RANDFMT, rand, name)
-        time.sleep(rand)
 
     # Attempt to run job
     for i in range(maxretry):
@@ -139,6 +124,9 @@ def loop(args, cfg):
     # Create thread list
     threads = {}
 
+    # Track job modifications
+    mods = {}
+
     try:
         logging.info('Starting main loop')
         while True:
@@ -174,17 +162,32 @@ def loop(args, cfg):
                 try:
                     nextrun = parser.parse('%s from %s' % (jobs[job]['every'],
                                            runs[job]['end']))[0]
-                    nextrun = time.mktime(nextrun)
+                    nextrun = datetime.fromtimestamp(time.mktime(nextrun))
                 except KeyError, exc:
-                    nextrun = 0
+                    nextrun = now
                     runs[job] = {}
 
+                # Wait for some random amount of time?
+                if job in mods:
+                    nextrun = mods[job]
+                elif 'random' in jobs[job] and jobs[job]['random'] != '':
+                    rand = time.mktime(parser.parse(jobs[job]['random'])[0])
+                    rand = datetime.fromtimestamp(rand) - datetime.now()
+                    rand = random.randrange(int(rand.total_seconds()))
+                    mods[job] = nextrun + timedelta(seconds=rand)
+                    nextrun = mods[job]
+
                 # Run the job?
-                if now > datetime.fromtimestamp(nextrun):
+                if now >= nextrun:
+                    # Clean up
+                    if job in mods:
+                        del mods[job]
                     try:
                         del runs[job]['end']
                     except KeyError:
                         pass
+
+                    # Run
                     threads[job] = \
                         threading.Thread(target=run,
                                          args=(cfg, parser, job, jobs[job]))
