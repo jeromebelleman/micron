@@ -1,3 +1,5 @@
+Schedule resilient cron jobs and make sure they eventually run often enough.
+
 # NAME
 
 micron – Schedule jobs
